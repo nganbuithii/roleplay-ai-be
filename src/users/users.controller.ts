@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Request,
+  ForbiddenException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -33,8 +34,8 @@ export class UsersController {
           id: { type: 'string' },
           email: { type: 'string' },
           displayName: { type: 'string' },
-          roleplayName: { type: 'string' },
-          avatar: { type: 'string' },
+          roleplayName: { type: 'string', nullable: true },
+          avatar: { type: 'string', nullable: true },
           createdAt: { type: 'string' },
         },
       },
@@ -55,8 +56,8 @@ export class UsersController {
         id: { type: 'string' },
         email: { type: 'string' },
         displayName: { type: 'string' },
-        roleplayName: { type: 'string' },
-        avatar: { type: 'string' },
+        roleplayName: { type: 'string', nullable: true },
+        avatar: { type: 'string', nullable: true },
         createdAt: { type: 'string' },
       },
     },
@@ -73,15 +74,15 @@ export class UsersController {
     description: 'Thông tin người dùng đã được cập nhật',
   })
   @ApiResponse({ status: 404, description: 'Không tìm thấy người dùng' })
+  @ApiResponse({ status: 403, description: 'Không có quyền cập nhật thông tin người dùng này' })
   @Patch(':id')
   update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
     @Request() req,
   ) {
-    // Kiểm tra xem người dùng có quyền cập nhật không
     if (req.user.id !== id) {
-      throw new Error('Unauthorized');
+      throw new ForbiddenException('Bạn không có quyền cập nhật thông tin người dùng này');
     }
     return this.usersService.update(id, updateUserDto);
   }
@@ -92,11 +93,11 @@ export class UsersController {
     description: 'Người dùng đã được xóa',
   })
   @ApiResponse({ status: 404, description: 'Không tìm thấy người dùng' })
+  @ApiResponse({ status: 403, description: 'Không có quyền xóa người dùng này' })
   @Delete(':id')
   remove(@Param('id') id: string, @Request() req) {
-    // Kiểm tra xem người dùng có quyền xóa không
     if (req.user.id !== id) {
-      throw new Error('Unauthorized');
+      throw new ForbiddenException('Bạn không có quyền xóa người dùng này');
     }
     return this.usersService.remove(id);
   }

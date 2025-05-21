@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcrypt';
@@ -72,17 +72,41 @@ export class UsersService {
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<UserSafe> {
-    const { password, ...rest } = updateUserDto;
-    const data: any = { ...rest };
 
-    if (password) {
-      data.password = await bcrypt.hash(password, 10);
-    }
 
     try {
-      return await this.prisma.user.update({
+      // Kiểm tra user có tồn tại không
+      const existingUser = await this.prisma.user.findUnique({
         where: { id },
-        data,
+      });
+
+      if (!existingUser) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
+      const updateData: any = {};
+
+      // Chỉ update các trường được gửi lên
+      if (updateUserDto.displayName !== undefined) {
+        updateData.displayName = updateUserDto.displayName;
+      }
+      if (updateUserDto.roleplayName !== undefined) {
+        updateData.roleplayName = updateUserDto.roleplayName;
+      }
+      if (updateUserDto.avatar !== undefined) {
+        updateData.avatar = updateUserDto.avatar;
+      }
+      if (updateUserDto.password) {
+        updateData.password = await bcrypt.hash(updateUserDto.password, 10);
+      }
+
+      // Kiểm tra xem có data nào để update không
+      if (Object.keys(updateData).length === 0) {
+        return existingUser as UserSafe;
+      }
+
+      const updatedUser = await this.prisma.user.update({
+        where: { id },
+        data: updateData,
         select: {
           id: true,
           email: true,
@@ -91,9 +115,13 @@ export class UsersService {
           avatar: true,
           createdAt: true,
         },
-      }) as UserSafe;
+      });
+      return updatedUser as UserSafe;
     } catch (error) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error('Failed to update user: ' + error.message);
     }
   }
 
